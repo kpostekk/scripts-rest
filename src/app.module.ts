@@ -7,7 +7,7 @@ import { Script } from './scripts/scripts.entity'
   imports: [
     TypeOrmModule.forRoot({
       type: 'sqlite',
-      database: 'whocares',
+      database: 'whocares.sqlite',
       entities: [Script],
       synchronize: true,
     }),
