@@ -1,6 +1,4 @@
 import { Module } from '@nestjs/common'
-import { AppController } from './app.controller'
-import { AppService } from './app.service'
 import { ScriptsModule } from './scripts/scripts.module'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { Script } from './scripts/scripts.entity'
@@ -15,7 +13,7 @@ import { Script } from './scripts/scripts.entity'
     }),
     ScriptsModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  // controllers: [AppController],
+  // providers: [AppService],
 })
 export class AppModule {}
