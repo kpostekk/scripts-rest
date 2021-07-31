@@ -25,6 +25,7 @@ export class RunnersService {
 
   async execScript(
     where: FindConditions<Scripts> | Array<FindConditions<Scripts>>,
+    envExtension: Record<string, string> = {},
   ) {
     // Find script schema
     const script = await this.scriptRepository.findOne({ where })
@@ -49,7 +50,13 @@ export class RunnersService {
       script,
       status: 'Started',
     })
-    const spawnedProcess = spawn(fragments[0], fragments.slice(1), { cwd })
+    const spawnedProcess = spawn(fragments[0], fragments.slice(1), {
+      cwd,
+      env: {
+        ...process.env,
+        ...envExtension,
+      },
+    })
 
     // Pass stdout to DB
     spawnedProcess.stdout.on('data', async (chunk) => {
