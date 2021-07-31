@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
-import { Script } from './scripts.entity'
+import { Scripts } from './scripts.entity'
 import { ScriptsService } from './scripts.service'
 import { ScriptsController } from './scripts.controller'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Script])],
+  imports: [TypeOrmModule.forFeature([Scripts])],
   providers: [ScriptsService],
   exports: [ScriptsService],
   controllers: [ScriptsController],

@@ -2,7 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm'
 import { ApiProperty } from '@nestjs/swagger'
 
 @Entity()
-export class Script {
+export class Scripts {
   @ApiProperty({ example: 420, readOnly: true })
   @PrimaryGeneratedColumn()
   id: number
