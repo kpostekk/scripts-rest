@@ -16,6 +16,6 @@ export class Script {
   workingDir: string
 
   @ApiProperty({ example: 'shutdown' })
-  @Column({ nullable: true })
-  alias: string
+  @Column({ nullable: true, unique: true })
+  alias?: string
 }
