@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { NotFoundException, Injectable, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Scripts } from '../scripts/scripts.entity'
 import { FindConditions, Repository } from 'typeorm'
@@ -11,6 +11,8 @@ import { RunLog } from './entities/log.entity'
 @Injectable()
 export class RunnersService {
   private readonly logger = new Logger(RunnersService.name)
+  private processes: Map<string, ChildProcess> = new Map()
+  private runsToScripts: Map<string, Scripts> = new Map()
 
   constructor(
     @InjectRepository(Scripts)
@@ -26,6 +28,8 @@ export class RunnersService {
   ) {
     // Find script schema
     const script = await this.scriptRepository.findOne({ where })
+
+    if (script === undefined) throw new NotFoundException()
 
     // Create runId for identification purposes
     const runId: string = createHash('sha256')
@@ -45,10 +49,10 @@ export class RunnersService {
       script,
       status: 'Started',
     })
-    const s = spawn(fragments[0], fragments.slice(1), { cwd })
+    const spawnedProcess = spawn(fragments[0], fragments.slice(1), { cwd })
 
     // Pass stdout to DB
-    s.stdout.on('data', async (chunk) => {
+    spawnedProcess.stdout.on('data', async (chunk) => {
       await this.runResultRepository.save({
         runId,
         script,
@@ -56,11 +60,13 @@ export class RunnersService {
       })
     })
 
-    s.on('error', async (err) => {
+    spawnedProcess.on('error', async (err) => {
       this.logger.warn(
         `Run of script ${script.alias ?? script.command} failed!`,
         err,
       )
+      this.processes.delete(runId)
+      this.runsToScripts.delete(runId)
       await this.runLogRepository.save({
         script,
         runId,
@@ -68,22 +74,42 @@ export class RunnersService {
       })
     })
 
-    s.on('exit', async (code) => {
+    spawnedProcess.on('exit', async (code) => {
       this.logger.log(
         `${runId.slice(0, 8)}... finished its ${
           script.alias ?? 'scriptId' + script.id
         } job with code ${code}.`,
       )
+      this.processes.delete(runId)
+      this.runsToScripts.delete(runId)
       await this.runLogRepository.save({
         script,
         runId,
         status: 'Finished',
       })
     })
-    s.stdout.pipe(process.stdout)
+    spawnedProcess.stdout.pipe(process.stdout)
+
+    this.processes.set(runId, spawnedProcess)
+    this.runsToScripts.set(runId, script)
 
     // Return runId for identification
     return { runId }
+  }
+
+  async killProcess(runId: string) {
+    if (!this.processes.has(runId)) throw new NotFoundException()
+    const proc = this.processes.get(runId)
+    this.processes.delete(runId)
+    const script = this.runsToScripts.get(runId)
+    this.runsToScripts.delete(runId)
+    proc.kill('SIGABRT')
+    await this.runLogRepository.save({
+      runId,
+      status: 'Killed',
+      script,
+    })
+    return { script }
   }
 
   async statusOfSpecifiedRun(runId: string) {
@@ -92,6 +118,9 @@ export class RunnersService {
       order: { runDate: 'DESC' },
       relations: ['script'],
     })
+
+    if (runStatuses.length < 1) throw new NotFoundException()
+
     const runResults = await this.runResultRepository.find({
       where: { runId },
     })

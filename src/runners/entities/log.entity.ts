@@ -13,7 +13,7 @@ export class RunLog {
   runId: string
 
   @Column()
-  status: 'Started' | 'Finished' | 'Errored'
+  status: 'Started' | 'Finished' | 'Errored' | 'Killed'
 
   @ManyToOne('Scripts')
   script: Scripts

@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common'
+import { Controller, Delete, Get, Param, Redirect, Res } from "@nestjs/common";
 import { ApiProperty } from '@nestjs/swagger'
 import { RunnersService } from './runners.service'
 
@@ -20,5 +20,12 @@ export class RunnersController {
   @Get('status/:runId')
   async statusOfSpecifiedRun(@Param('runId') runId: string) {
     return await this.runnersService.statusOfSpecifiedRun(runId)
+  }
+
+  @Delete('kill/:runId')
+  async killRun(@Res() res, @Param('runId') runId: string) {
+    const { script } = await this.runnersService.killProcess(runId)
+    console.log(script)
+    return { removed: true, runId, script }
   }
 }
