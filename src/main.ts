@@ -10,8 +10,7 @@ async function bootstrap() {
     .setDescription('Whatever API')
     .build()
 
-  const swDocument = SwaggerModule.createDocument(app, swConfig)
-  SwaggerModule.setup('', app, swDocument)
+  SwaggerModule.setup('', app, SwaggerModule.createDocument(app, swConfig))
 
   await app.listen(3000)
 }

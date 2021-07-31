@@ -1,10 +1,21 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm'
+import { ApiProperty } from '@nestjs/swagger'
 
 @Entity()
 export class Script {
-  @PrimaryGeneratedColumn() id: number
+  @ApiProperty({ example: 420, readOnly: true })
+  @PrimaryGeneratedColumn()
+  id: number
 
-  @Column() command: string
+  @ApiProperty({ example: 'sudo shutdown 15 -h' })
+  @Column()
+  command: string
 
-  @Column({ default: '~' }) workingDir: string
+  @ApiProperty({ example: '/home/kpostek/anything' })
+  @Column({ default: '~' })
+  workingDir: string
+
+  @ApiProperty({ example: 'shutdown' })
+  @Column({ nullable: true })
+  alias: string
 }
