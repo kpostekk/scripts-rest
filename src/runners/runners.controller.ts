@@ -29,7 +29,7 @@ class RunScriptRequest {
 export class RunnersController {
   constructor(private runnersService: RunnersService) {}
 
-  @Post('')
+  @Post()
   @ApiOperation({ summary: 'Run specified Script' })
   async execScriptByAlias(@Body() runRequest: RunScriptRequest) {
     if (!!runRequest.alias && !!runRequest.id)
