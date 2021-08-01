@@ -7,6 +7,7 @@ import { createHash, randomBytes } from 'crypto'
 import { homedir } from 'os'
 import { RunResult } from './entities/run.entity'
 import { RunLog } from './entities/log.entity'
+import { writeFile, rm } from 'fs/promises'
 
 @Injectable()
 export class RunnersService {
@@ -22,6 +23,23 @@ export class RunnersService {
     @InjectRepository(RunLog)
     private runLogRepository: Repository<RunLog>,
   ) {}
+
+  private async repackScriptToFile(
+    script: Scripts,
+    runId: string,
+    cwd: string,
+  ): Promise<string> {
+    const scriptFilename = `${cwd}/.tmp-runner-${runId}.sh`
+    await writeFile(scriptFilename, script.command)
+    return scriptFilename
+  }
+
+  private async cleanAfterRun(runId: string, cwd: string) {
+    const scriptFilename = `${cwd}/.tmp-runner-${runId}.sh`
+    await rm(scriptFilename)
+    this.processes.delete(runId)
+    this.runsToScripts.delete(runId)
+  }
 
   async execScript(
     where: FindConditions<Scripts> | Array<FindConditions<Scripts>>,
@@ -43,14 +61,17 @@ export class RunnersService {
     // Replace ~ with homedir
     const cwd = script.workingDir.replace('~', homedir())
 
+    // Pack script into file
+    const scriptName = await this.repackScriptToFile(script, runId, cwd)
+
     // Spawn script and register it
-    const fragments = script.command.split(' ')
     await this.runLogRepository.save({
       runId,
       script,
       status: 'Started',
     })
-    const spawnedProcess = spawn(fragments[0], fragments.slice(1), {
+
+    const spawnedProcess = spawn('bash', [scriptName], {
       cwd,
       env: {
         ...process.env,
@@ -58,22 +79,24 @@ export class RunnersService {
       },
     })
 
-    // Pass stdout to DB
-    spawnedProcess.stdout.on('data', async (chunk) => {
+    const stdoutPassToDB = async (chunk: any) => {
       await this.runResultRepository.save({
         runId,
         script,
         text: chunk.toString(),
       })
-    })
+    }
+
+    // Pass stdout to DB
+    spawnedProcess.stdout.on('data', stdoutPassToDB)
+    spawnedProcess.stderr.on('data', stdoutPassToDB)
 
     spawnedProcess.on('error', async (err) => {
       this.logger.warn(
         `Run of script ${script.alias ?? script.command} failed!`,
         err,
       )
-      this.processes.delete(runId)
-      this.runsToScripts.delete(runId)
+      await this.cleanAfterRun(runId, cwd)
       await this.runLogRepository.save({
         script,
         runId,
@@ -87,8 +110,7 @@ export class RunnersService {
           script.alias ?? 'scriptId' + script.id
         } job with code ${code}.`,
       )
-      this.processes.delete(runId)
-      this.runsToScripts.delete(runId)
+      await this.cleanAfterRun(runId, cwd)
       await this.runLogRepository.save({
         script,
         runId,
@@ -96,6 +118,7 @@ export class RunnersService {
       })
     })
     spawnedProcess.stdout.pipe(process.stdout)
+    spawnedProcess.stderr.pipe(process.stderr)
 
     this.processes.set(runId, spawnedProcess)
     this.runsToScripts.set(runId, script)
